@@ -1,0 +1,57 @@
+trigger:
+  - main
+pool: Default
+
+stages:
+  - stage: build
+    jobs:
+    - job: buildjob
+      steps:
+        - task: SonarCloudPrepare@2
+          inputs:
+            sonar.host.url: 'https://sonarcloud.io'
+            SonarCloud: 'dheerajsonar'
+            organization: 'javaspc'
+            scannerMode: 'Other'
+            configMode: 'manual'
+            # projectKey: 'javaspc_javaspringpetclinic'
+            # projectName: 'JavaSpringPetclinic'
+            extraProperties: |
+              sonar.projectKey=javaspc_javaspringpetclinic
+              sonar.projectName=JavaSpringPetclinic
+        - task: Maven@4
+          inputs:
+            mavenPomFile: 'pom.xml'
+            goals: 'clean verify sonar:sonar'
+            publishJUnitResults: true
+
+            
+        - task: SonarCloudPublish@2
+          inputs:
+            pollingTimeoutSec: '300'
+
+        
+        - task: CopyFiles@2 
+          inputs: 
+            Contents: '**'
+            TargetFolder: '$(build.artifactstagingdirectory)'
+
+        - task: PublishBuildArtifacts@1
+          inputs:
+            PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+            ArtifactName: 'drop'
+            publishLocation: 'Container'
+              
+
+# Code Commit → Trigger Pipeline
+#      ↓
+# SonarCloudPrepare → Setup SonarCloud connection
+#      ↓
+# Maven Build/Test/Analyze → Compile + Run tests + Sonar scan
+#      ↓
+# SonarCloudPublish → Wait for quality gate (pass/fail)
+#      ↓
+# CopyFiles → Stage output files
+#      ↓
+# PublishBuildArtifacts → Upload build artifacts (drop)
+

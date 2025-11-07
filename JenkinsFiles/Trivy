@@ -1,0 +1,17 @@
+pipeline {
+    agent {
+        label 'app'
+
+    }
+    triggers {
+        pollSCM('* * * * *')
+    }
+    stages {
+        stage('install-trivy') {
+            steps {
+                sh '''
+                    sudo apt-get install -y wget 
+            }
+        }
+    }
+}
