@@ -1,0 +1,30 @@
+name: mydotnetproject
+ 
+on:
+  push:
+    branches:
+      - develop
+ 
+jobs:
+  dotnet-publish:
+    runs-on: 'ubuntu-latest'
+ 
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.100'
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@v3
+ 
+        with:
+          args: >
+             -Dsonar.organization=noporganisation
+             -Dsonar.projectKey=noporganisation_nop-commerce
+        env:
+              SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+              mysonar_url: https://sonarcloud.io
+      - name: Publish project
+        run: dotnet publish -c release src/Presentation/Nop.Web/Nop.Web.csproj -o dheeraj
