@@ -1,50 +1,71 @@
-name: mydotnetproject
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nop-dep
+  labels:
+    env: prod
+    app: web
+spec:
+  replicas: 2
+  minReadySeconds: 10
+  selector:
+    matchLabels:
+      app: dotnet-nop
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
  
-on:
-  push:
-    branches:
-      - develop
+  template:
+    metadata:
+      labels:
+        app: dotnet-nop
+    spec:
+      containers:
+      - name: dotnet-con
+        image: 542833615945.dkr.ecr.ap-south-1.amazonaws.com/ecr/nopcommerce
+        ports:
+        - containerPort: 5000
+          protocol: TCP
  
-jobs:
-  dotnet-publish:
-    runs-on: 'ubuntu-latest'
- 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-      - name: Set up .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '9.0.100'
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@v3
- 
-        with:
-          args: >
-             -Dsonar.organization=noporganisation
-             -Dsonar.projectKey=noporganisation_nop-commerce
+        # ✅ Important: make sure ASP.NET binds correctly
         env:
-              SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-              mysonar_url: https://sonarcloud.io
-      - name: Publish project
-        run: dotnet publish -c release src/Presentation/Nop.Web/Nop.Web.csproj -o dheeraj
-      # AWS CONFIGURE
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with: 
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-seceret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-south-1
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-        # build and push docker image
-      - name: Build Docker image
-        env:
-          ECR_REGISTRY: aws ecr get-login-password --region ap-south-1 | docker login --username AWS --password-stdin 542833615945.dkr.ecr.ap-south-1.amazonaws.com
-          ECR_REPOSITORY: ecr/nopcommerce
-          IMAGE_TAG: latest
-        run: |
-          docker build -t ecr/nopcommerce .
-          docker tag ecr/nopcommerce:latest 542833615945.dkr.ecr.ap-south-1.amazonaws.com/ecr/nopcommerce:latest
-          docker push 542833615945.dkr.ecr.ap-south-1.amazonaws.com/ecr/nopcommerce:latest
+        - name: ASPNETCORE_URLS
+          value: "http://+:5000"
+ 
+        # ✅ Startup Probe (gives app time to boot up)
+        startupProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 60   # wait before first probe
+          periodSeconds: 10         # check every 10 sec
+          failureThreshold: 10      # allow up to 100 sec startup
+ 
+        # ✅ Readiness Probe (traffic only after it's ready)
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          failureThreshold: 3
+ 
+        # ✅ Liveness Probe (restarts app if hung)
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 120
+          periodSeconds: 20
+          failureThreshold: 3
+ 
+        # ✅ Resource tuning for t2.medium (2 vCPU, 4GB)
+        resources:
+          requests:
+            cpu: "800m"
+            memory: "1500Mi"
+          limits:
+            cpu: "1800m"
+            memory: "1800Mi"
